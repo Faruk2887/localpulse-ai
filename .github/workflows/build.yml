@@ -23,20 +23,21 @@ jobs:
     - name: Create icons
       run: |
         mkdir -p assets
-        python -c "from PIL import Image, ImageDraw; img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255)); draw = ImageDraw.Draw(img); draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255)); img.save('assets/icon.png'); splash = Image.new('RGB', (1080, 1920), (79, 70, 229)); splash.save('assets/splash.png'); print('Icons created')"
+        python -c "from PIL import Image, ImageDraw; img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255)); draw = ImageDraw.Draw(img); draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255)); img.save('assets/icon.png'); splash = Image.new('RGB', (1080, 1920), (79, 70, 229)); splash.save('assets/splash.png'); print('done')"
     - name: Setup Android SDK
       run: |
         SDK=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $SDK
-        cd $SDK
+        mkdir -p $SDK && cd $SDK
         wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
-        unzip -q sdk-tools-linux-4333796.zip
-        echo '#!/bin/bash' > tools/bin/sdkmanager
-        echo 'exec java --add-modules java.xml.bind -jar $(dirname $0)/../lib/sdkmanager-cli-*.jar "$@"' >> tools/bin/sdkmanager
+        unzip -qo sdk-tools-linux-4333796.zip
+        ls tools/lib/
+        JAR=$(ls tools/lib/sdkmanager-*.jar 2>/dev/null || ls tools/lib/*.jar | head -1)
+        echo "Found JAR: $JAR"
+        echo "#!/bin/bash" > tools/bin/sdkmanager
+        echo "exec java --add-modules java.xml.bind -jar $SDK/$JAR \"\$@\"" >> tools/bin/sdkmanager
         chmod +x tools/bin/sdkmanager
         yes | tools/bin/sdkmanager --licenses --sdk_root=$SDK
         tools/bin/sdkmanager --sdk_root=$SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
-        echo "SDK ready"
     - name: Build APK
       run: buildozer android debug
     - uses: actions/upload-artifact@v4
