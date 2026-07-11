@@ -43,6 +43,19 @@ jobs:
       run: |
         buildozer android debug
     
+    - name: Fix missing aidl
+      if: failure()
+      run: |
+        echo "Installing aidl..."
+        ANDROID_HOME=$(find /home/runner/.buildozer -name "android-sdk" -type d 2>/dev/null | head -1)
+        if [ -n "$ANDROID_HOME" ]; then
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0"
+          cp $ANDROID_HOME/build-tools/33.0.0/aidl $ANDROID_HOME/tools/ 2>/dev/null
+          mkdir -p $ANDROID_HOME/tools/bin
+          ln -sf $ANDROID_HOME/build-tools/33.0.0/aidl $ANDROID_HOME/tools/bin/aidl 2>/dev/null
+        fi
+        buildozer android debug
+    
     - uses: actions/upload-artifact@v4
       with:
         name: LocalPulseAI-APK
