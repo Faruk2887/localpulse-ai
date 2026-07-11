@@ -14,8 +14,6 @@ android.minapi = 26
 android.ndk = 25b
 android.allow_backup = True
 android.presplash_color = #4F46E5
-android.icon = assets/icon.png
-android.presplash = assets/splash.png
 
 [buildozer]
 log_level = 2
