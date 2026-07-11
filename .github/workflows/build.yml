@@ -23,30 +23,46 @@ jobs:
       run: |
         mkdir -p assets
         python -c "from PIL import Image, ImageDraw; img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255)); draw = ImageDraw.Draw(img); draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255)); img.save('assets/icon.png'); splash = Image.new('RGB', (1080, 1920), (79, 70, 229)); splash.save('assets/splash.png')"
-    - name: Setup SDK (Java 17 for sdkmanager)
+    - name: Debug SDK zip structure
+      run: |
+        cd /tmp
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -qo commandlinetools-linux-11076708_latest.zip
+        echo "=== Top level ==="
+        ls -la
+        echo "=== cmdline-tools ==="
+        ls -la cmdline-tools/ 2>/dev/null || echo "no cmdline-tools dir"
+        echo "=== Find sdkmanager ==="
+        find . -name "sdkmanager" -type f 2>/dev/null
+        echo "=== Find all bins ==="
+        find . -name "bin" -type d 2>/dev/null
+    - name: Setup SDK
       run: |
         export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
         export PATH=$JAVA_HOME/bin:$PATH
         
         SDK=$HOME/.buildozer/android/platform/android-sdk
         rm -rf $SDK
-        mkdir -p $SDK/cmdline-tools
+        mkdir -p $SDK
         
-        cd $SDK/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        unzip -qo commandlinetools-linux-11076708_latest.zip
+        cd /tmp
+        SDKMGR=$(find . -name "sdkmanager" -type f | head -1)
+        echo "Found sdkmanager at: $SDKMGR"
         
+        # Copy everything to SDK
+        cp -r cmdline-tools $SDK/ 2>/dev/null || mkdir -p $SDK/cmdline-tools && find . -path "*/bin/sdkmanager" -exec dirname {} \; | head -1 | xargs -I{} cp -r {}/* $SDK/cmdline-tools/
+        
+        # Create tools/bin for buildozer
         mkdir -p $SDK/tools/bin
-        cp $SDK/cmdline-tools/bin/sdkmanager $SDK/tools/bin/
-        cp $SDK/cmdline-tools/bin/avdmanager $SDK/tools/bin/ 2>/dev/null
+        SDKMGR_PATH=$(find $SDK -name "sdkmanager" -type f | head -1)
+        cp $SDKMGR_PATH $SDK/tools/bin/sdkmanager
         
         yes | $SDK/tools/bin/sdkmanager --sdk_root=$SDK --licenses
         $SDK/tools/bin/sdkmanager --sdk_root=$SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
         
         cp $SDK/build-tools/33.0.0/aidl $SDK/tools/bin/ 2>/dev/null
         echo "SDK done"
-        ls $SDK/tools/bin/
-    - name: Build APK (Java 8 for buildozer)
+    - name: Build APK
       run: |
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         export PATH=$JAVA_HOME/bin:$PATH
