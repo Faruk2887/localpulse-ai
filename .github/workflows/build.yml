@@ -17,46 +17,39 @@ jobs:
     - name: Install deps
       run: |
         sudo apt-get update
-        sudo apt-get install -y openjdk-8-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
-        sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
-        java -version
+        sudo apt-get install -y openjdk-17-jdk openjdk-8-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
         pip install buildozer cython pillow
     - name: Create icons
       run: |
         mkdir -p assets
         python -c "from PIL import Image, ImageDraw; img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255)); draw = ImageDraw.Draw(img); draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255)); img.save('assets/icon.png'); splash = Image.new('RGB', (1080, 1920), (79, 70, 229)); splash.save('assets/splash.png')"
-    - name: Setup Android SDK
+    - name: Setup SDK (Java 17 for sdkmanager)
       run: |
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        
         SDK=$HOME/.buildozer/android/platform/android-sdk
         rm -rf $SDK
-        mkdir -p $SDK
+        mkdir -p $SDK/cmdline-tools
         
-        cd /tmp
+        cd $SDK/cmdline-tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         unzip -qo commandlinetools-linux-11076708_latest.zip
-        ls -la cmdline-tools/
-        ls -la cmdline-tools/bin/
         
-        # Move to SDK location
-        mkdir -p $SDK/cmdline-tools/latest
-        cp -r cmdline-tools/* $SDK/cmdline-tools/latest/
-        
-        # Buildozer expects tools/bin/sdkmanager
         mkdir -p $SDK/tools/bin
-        cp $SDK/cmdline-tools/latest/bin/sdkmanager $SDK/tools/bin/
-        chmod +x $SDK/tools/bin/sdkmanager
+        cp $SDK/cmdline-tools/bin/sdkmanager $SDK/tools/bin/
+        cp $SDK/cmdline-tools/bin/avdmanager $SDK/tools/bin/ 2>/dev/null
         
-        # Install packages
         yes | $SDK/tools/bin/sdkmanager --sdk_root=$SDK --licenses
         $SDK/tools/bin/sdkmanager --sdk_root=$SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
         
-        # Copy aidl
         cp $SDK/build-tools/33.0.0/aidl $SDK/tools/bin/ 2>/dev/null
-        echo "SDK setup done"
+        echo "SDK done"
         ls $SDK/tools/bin/
-    - name: Build APK
+    - name: Build APK (Java 8 for buildozer)
       run: |
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
         buildozer android debug
     - uses: actions/upload-artifact@v4
       with:
