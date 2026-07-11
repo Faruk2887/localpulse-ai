@@ -15,11 +15,17 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install deps
+    - name: Install Java 8
       run: |
         sudo apt-get update
-        sudo apt-get install -y openjdk-17-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
-        pip install buildozer cython pillow
+        sudo apt-get install -y openjdk-8-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
+        # Set Java 8 as default
+        sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
+        sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac
+        java -version
+    
+    - name: Install Python deps
+      run: pip install buildozer cython pillow
     
     - name: Create icons
       run: |
@@ -34,29 +40,19 @@ jobs:
         splash.save('assets/splash.png')
         "
 
-    - name: Setup Android SDK (old structure buildozer expects)
+    - name: Setup Android SDK
       run: |
         SDK=$HOME/.buildozer/android/platform/android-sdk
-        
-        # Download old-style SDK tools
         mkdir -p $SDK
         cd $SDK
         wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
         unzip -q sdk-tools-linux-4333796.zip
-        rm sdk-tools-linux-4333796.zip
         
-        # Accept licenses
         yes | $SDK/tools/bin/sdkmanager --licenses
-        
-        # Install build tools and platform
         $SDK/tools/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
-        
-        # Verify aidl exists
-        ls $SDK/build-tools/33.0.0/aidl && echo "aidl found"
-        
+
     - name: Build APK
-      run: |
-        buildozer android debug
+      run: buildozer android debug
     
     - uses: actions/upload-artifact@v4
       with:
