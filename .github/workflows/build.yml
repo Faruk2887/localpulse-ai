@@ -36,19 +36,49 @@ jobs:
         splash.save('assets/splash.png')
         "
     
-    - name: Pre-create SDK directory with aidl
+    - name: Setup complete Android SDK
       run: |
         SDK=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $SDK/tools/bin
+        mkdir -p $SDK
         
-        # Download just build-tools and extract aidl
-        cd /tmp
-        wget -q https://dl.google.com/android/repository/build-tools_r33-linux.zip
-        unzip -q build-tools_r33-linux.zip
-        cp android-13/aidl $SDK/tools/bin/
-        chmod +x $SDK/tools/bin/aidl
-        echo "aidl installed at:"
-        ls -la $SDK/tools/bin/aidl
+        # Download old SDK tools
+        cd $SDK
+        wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
+        unzip -q sdk-tools-linux-4333796.zip
+        
+        # Create a wrapper that adds JAXB
+        cat > $SDK/tools/bin/sdkmanager << 'WRAPPER'
+#!/bin/bash
+exec /usr/lib/jvm/java-11-openjdk-amd64/bin/java \
+  --add-modules java.xml.bind \
+  -XX:+IgnoreUnrecognizedVMOptions \
+  -jar $(dirname $0)/../lib/sdkmanager-cli-*.jar \
+  "$@"
+WRAPPER
+        chmod +x $SDK/tools/bin/sdkmanager
+        
+        # Create avdmanager wrapper
+        cat > $SDK/tools/bin/avdmanager << 'WRAPPER2'
+#!/bin/bash
+exec /usr/lib/jvm/java-11-openjdk-amd64/bin/java \
+  --add-modules java.xml.bind \
+  -XX:+IgnoreUnrecognizedVMOptions \
+  -jar $(dirname $0)/../lib/avdmanager-cli-*.jar \
+  "$@"
+WRAPPER2
+        chmod +x $SDK/tools/bin/avdmanager
+        
+        # Accept licenses
+        yes | $SDK/tools/bin/sdkmanager --licenses --sdk_root=$SDK
+        
+        # Install build tools and platform
+        $SDK/tools/bin/sdkmanager --sdk_root=$SDK \
+          "platform-tools" \
+          "platforms;android-33" \
+          "build-tools;33.0.0"
+        
+        echo "SDK setup complete"
+        ls $SDK/tools/bin/
 
     - name: Build APK
       run: buildozer android debug
