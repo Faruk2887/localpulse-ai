@@ -10,14 +10,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
-    
     - name: Setup
       run: |
         sudo apt-get update
         sudo apt-get install -y openjdk-17-jdk python3-pip zlib1g-dev git zip unzip wget
         sudo update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
         pip install buildozer cython pillow --break-system-packages
-    
     - name: Create icons
       run: |
         mkdir -p assets
@@ -29,22 +27,32 @@ jobs:
         img.save('assets/icon.png')
         Image.new('RGB', (1080,1920), (79,70,229)).save('assets/splash.png')
         "
-    
-    - name: Build APK
+    - name: Prepare SDK for buildozer
       run: |
-        # Accept all Android licenses upfront
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+        SDK=$HOME/.buildozer/android/platform/android-sdk
+        rm -rf $SDK
+        mkdir -p $SDK
         
-        # Install required packages
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        # Copy entire GitHub SDK
+        cp -r /usr/local/lib/android/sdk/* $SDK/
         
-        # Point buildozer to GitHub's SDK
-        mkdir -p $HOME/.buildozer/android/platform
-        ln -sf $ANDROID_HOME $HOME/.buildozer/android/platform/android-sdk
+        # Create the EXACT path buildozer wants
+        mkdir -p $SDK/tools/bin
+        cp $SDK/cmdline-tools/latest/bin/sdkmanager $SDK/tools/bin/
+        cp $SDK/cmdline-tools/latest/bin/avdmanager $SDK/tools/bin/ 2>/dev/null
+        cp -r $SDK/cmdline-tools/latest/lib $SDK/tools/
         
-        # Build
-        buildozer android debug
-    
+        # Accept licenses
+        yes | $SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$SDK --licenses
+        $SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        
+        # Copy aidl
+        cp $SDK/build-tools/33.0.0/aidl $SDK/tools/bin/ 2>/dev/null
+        
+        echo "SDK ready. tools/bin contains:"
+        ls -la $SDK/tools/bin/
+    - name: Build APK
+      run: buildozer android debug
     - uses: actions/upload-artifact@v4
       with:
         name: LocalPulseAI-APK
