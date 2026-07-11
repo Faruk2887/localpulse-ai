@@ -15,14 +15,10 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install system deps
+    - name: Install deps
       run: |
         sudo apt-get update
         sudo apt-get install -y openjdk-17-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
-    
-    - name: Install Python deps
-      run: |
-        pip install --upgrade pip
         pip install buildozer cython pillow
     
     - name: Create icons
@@ -36,24 +32,38 @@ jobs:
         img.save('assets/icon.png')
         splash = Image.new('RGB', (1080, 1920), (79, 70, 229))
         splash.save('assets/splash.png')
-        print('Icons created')
         "
-    
+
+    - name: Pre-install Android SDK
+      run: |
+        SDK_DIR=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $SDK_DIR/cmdline-tools
+        
+        cd $SDK_DIR/cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        mv cmdline-tools latest 2>/dev/null || true
+        
+        # Set path
+        export PATH=$SDK_DIR/cmdline-tools/latest/bin:$PATH
+        
+        # Accept licenses
+        yes | sdkmanager --licenses
+        
+        # Install platform tools and build tools
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        
+        # Create the tools/bin directory buildozer expects
+        mkdir -p $SDK_DIR/tools/bin
+        cp $SDK_DIR/build-tools/33.0.0/aidl $SDK_DIR/tools/bin/ 2>/dev/null || true
+        cp $SDK_DIR/platform-tools/adb $SDK_DIR/tools/bin/ 2>/dev/null || true
+        
+        echo "SDK ready at $SDK_DIR"
+        ls -la $SDK_DIR/tools/bin/
+
     - name: Build APK
       run: |
-        buildozer android debug
-    
-    - name: Fix missing aidl
-      if: failure()
-      run: |
-        echo "Installing aidl..."
-        ANDROID_HOME=$(find /home/runner/.buildozer -name "android-sdk" -type d 2>/dev/null | head -1)
-        if [ -n "$ANDROID_HOME" ]; then
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0"
-          cp $ANDROID_HOME/build-tools/33.0.0/aidl $ANDROID_HOME/tools/ 2>/dev/null
-          mkdir -p $ANDROID_HOME/tools/bin
-          ln -sf $ANDROID_HOME/build-tools/33.0.0/aidl $ANDROID_HOME/tools/bin/aidl 2>/dev/null
-        fi
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         buildozer android debug
     
     - uses: actions/upload-artifact@v4
