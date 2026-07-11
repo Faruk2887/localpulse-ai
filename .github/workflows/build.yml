@@ -10,11 +10,9 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
-    
     - uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-    
     - name: Install deps
       run: |
         sudo apt-get update
@@ -22,67 +20,25 @@ jobs:
         sudo update-alternatives --set java /usr/lib/jvm/java-11-openjdk-amd64/bin/java
         java -version
         pip install buildozer cython pillow
-    
     - name: Create icons
       run: |
         mkdir -p assets
-        python -c "
-        from PIL import Image, ImageDraw
-        img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255))
-        draw = ImageDraw.Draw(img)
-        draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255))
-        img.save('assets/icon.png')
-        splash = Image.new('RGB', (1080, 1920), (79, 70, 229))
-        splash.save('assets/splash.png')
-        "
-    
-    - name: Setup complete Android SDK
+        python -c "from PIL import Image, ImageDraw; img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255)); draw = ImageDraw.Draw(img); draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255)); img.save('assets/icon.png'); splash = Image.new('RGB', (1080, 1920), (79, 70, 229)); splash.save('assets/splash.png'); print('Icons created')"
+    - name: Setup Android SDK
       run: |
         SDK=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $SDK
-        
-        # Download old SDK tools
         cd $SDK
         wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
         unzip -q sdk-tools-linux-4333796.zip
-        
-        # Create a wrapper that adds JAXB
-        cat > $SDK/tools/bin/sdkmanager << 'WRAPPER'
-#!/bin/bash
-exec /usr/lib/jvm/java-11-openjdk-amd64/bin/java \
-  --add-modules java.xml.bind \
-  -XX:+IgnoreUnrecognizedVMOptions \
-  -jar $(dirname $0)/../lib/sdkmanager-cli-*.jar \
-  "$@"
-WRAPPER
-        chmod +x $SDK/tools/bin/sdkmanager
-        
-        # Create avdmanager wrapper
-        cat > $SDK/tools/bin/avdmanager << 'WRAPPER2'
-#!/bin/bash
-exec /usr/lib/jvm/java-11-openjdk-amd64/bin/java \
-  --add-modules java.xml.bind \
-  -XX:+IgnoreUnrecognizedVMOptions \
-  -jar $(dirname $0)/../lib/avdmanager-cli-*.jar \
-  "$@"
-WRAPPER2
-        chmod +x $SDK/tools/bin/avdmanager
-        
-        # Accept licenses
-        yes | $SDK/tools/bin/sdkmanager --licenses --sdk_root=$SDK
-        
-        # Install build tools and platform
-        $SDK/tools/bin/sdkmanager --sdk_root=$SDK \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.0"
-        
-        echo "SDK setup complete"
-        ls $SDK/tools/bin/
-
+        echo '#!/bin/bash' > tools/bin/sdkmanager
+        echo 'exec java --add-modules java.xml.bind -jar $(dirname $0)/../lib/sdkmanager-cli-*.jar "$@"' >> tools/bin/sdkmanager
+        chmod +x tools/bin/sdkmanager
+        yes | tools/bin/sdkmanager --licenses --sdk_root=$SDK
+        tools/bin/sdkmanager --sdk_root=$SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        echo "SDK ready"
     - name: Build APK
       run: buildozer android debug
-    
     - uses: actions/upload-artifact@v4
       with:
         name: LocalPulseAI-APK
