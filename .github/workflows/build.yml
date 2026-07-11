@@ -32,18 +32,28 @@ jobs:
       uses: android-actions/setup-android@v3
       with:
         packages: 'platforms;android-33 build-tools;33.0.0 platform-tools'
-    - name: Switch to Java 8 for buildozer
+    - name: Fix SDK paths for buildozer
+      run: |
+        BUILD_SDK=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $BUILD_SDK/tools/bin
+        
+        # Copy sdkmanager from installed SDK
+        cp $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $BUILD_SDK/tools/bin/
+        cp $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager $BUILD_SDK/tools/bin/ 2>/dev/null
+        
+        # Copy aidl
+        cp $ANDROID_HOME/build-tools/33.0.0/aidl $BUILD_SDK/tools/bin/ 2>/dev/null
+        
+        # Copy entire SDK for buildozer
+        cp -rn $ANDROID_HOME/* $BUILD_SDK/ 2>/dev/null
+        
+        echo "SDK paths fixed"
+        ls -la $BUILD_SDK/tools/bin/
+    - name: Switch to Java 8
       run: |
         sudo apt-get install -y openjdk-8-jdk
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
-        java -version
-    - name: Link SDK
-      run: |
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk
-        cp -r $ANDROID_HOME/* $HOME/.buildozer/android/platform/android-sdk/ 2>/dev/null
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk/tools/bin
-        cp $ANDROID_HOME/build-tools/33.0.0/aidl $HOME/.buildozer/android/platform/android-sdk/tools/bin/ 2>/dev/null
     - name: Build APK
       run: |
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
