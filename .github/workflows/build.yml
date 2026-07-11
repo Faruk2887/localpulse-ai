@@ -7,16 +7,43 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     
-    - name: Build APK with Buildozer
-      uses: ArtemSBulgakov/buildozer-action@v1
-      with:
-        buildozer_spec: buildozer.spec
-        workdir: .
+    - name: Setup
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openjdk-17-jdk python3-pip zlib1g-dev git zip unzip wget
+        sudo update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+        pip install buildozer cython pillow --break-system-packages
+    
+    - name: Create icons
+      run: |
+        mkdir -p assets
+        python3 -c "
+        from PIL import Image, ImageDraw
+        img = Image.new('RGBA', (1024,1024), (79,70,229,255))
+        d = ImageDraw.Draw(img)
+        d.ellipse([200,200,824,824], fill=(16,185,129,255))
+        img.save('assets/icon.png')
+        Image.new('RGB', (1080,1920), (79,70,229)).save('assets/splash.png')
+        "
+    
+    - name: Build APK
+      run: |
+        # Accept all Android licenses upfront
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        # Install required packages
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        
+        # Point buildozer to GitHub's SDK
+        mkdir -p $HOME/.buildozer/android/platform
+        ln -sf $ANDROID_HOME $HOME/.buildozer/android/platform/android-sdk
+        
+        # Build
+        buildozer android debug
     
     - uses: actions/upload-artifact@v4
       with:
