@@ -21,10 +21,40 @@ jobs:
         sudo apt-get install -y openjdk-17-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip
     
     - name: Install Python deps
-      run: pip install buildozer cython pillow
+      run: |
+        pip install --upgrade pip
+        pip install buildozer cython pillow
+    
+    - name: Create icons
+      run: |
+        mkdir -p assets
+        python -c "
+        from PIL import Image, ImageDraw
+        img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255))
+        draw = ImageDraw.Draw(img)
+        draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255))
+        draw.ellipse([350, 350, 674, 674], fill=(255, 255, 255, 255))
+        img.save('assets/icon.png')
+        splash = Image.new('RGB', (1080, 1920), (79, 70, 229))
+        splash.save('assets/splash.png')
+        print('Icons created')
+        "
+    
+    - name: Install Android SDK tools
+      run: |
+        mkdir -p $HOME/.buildozer/android/platform/android-sdk
+        cd $HOME/.buildozer/android/platform
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mkdir -p android-sdk/cmdline-tools
+        mv cmdline-tools android-sdk/cmdline-tools/latest
+        yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
     
     - name: Build APK
-      run: buildozer android debug
+      run: |
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        buildozer android debug
     
     - uses: actions/upload-artifact@v4
       with:
