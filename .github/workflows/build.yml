@@ -33,49 +33,14 @@ jobs:
         img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255))
         draw = ImageDraw.Draw(img)
         draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255))
-        draw.ellipse([350, 350, 674, 674], fill=(255, 255, 255, 255))
         img.save('assets/icon.png')
         splash = Image.new('RGB', (1080, 1920), (79, 70, 229))
         splash.save('assets/splash.png')
         print('Icons created')
         "
     
-    - name: Setup Android SDK
-      run: |
-        # Create expected directory structure
-        ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-        
-        # Download command line tools
-        cd $ANDROID_SDK_ROOT/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        mv cmdline-tools latest
-        
-        # Set up paths
-        export ANDROID_HOME=$ANDROID_SDK_ROOT
-        export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-        
-        # Accept licenses
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-        
-        # Install required packages
-        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.0" \
-          "cmdline-tools;latest"
-        
-        # Verify
-        ls -la $ANDROID_SDK_ROOT/
-        echo "SDK setup complete"
-    
     - name: Build APK
-      env:
-        ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
       run: |
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-        export PATH=$PATH:$ANDROID_HOME/platform-tools
         buildozer android debug
     
     - uses: actions/upload-artifact@v4
