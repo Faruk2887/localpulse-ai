@@ -34,36 +34,28 @@ jobs:
         splash.save('assets/splash.png')
         "
 
-    - name: Pre-install Android SDK
+    - name: Setup Android SDK (old structure buildozer expects)
       run: |
-        SDK_DIR=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $SDK_DIR/cmdline-tools
+        SDK=$HOME/.buildozer/android/platform/android-sdk
         
-        cd $SDK_DIR/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        unzip -q commandlinetools-linux-11076708_latest.zip
-        mv cmdline-tools latest 2>/dev/null || true
-        
-        # Set path
-        export PATH=$SDK_DIR/cmdline-tools/latest/bin:$PATH
+        # Download old-style SDK tools
+        mkdir -p $SDK
+        cd $SDK
+        wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
+        unzip -q sdk-tools-linux-4333796.zip
+        rm sdk-tools-linux-4333796.zip
         
         # Accept licenses
-        yes | sdkmanager --licenses
+        yes | $SDK/tools/bin/sdkmanager --licenses
         
-        # Install platform tools and build tools
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        # Install build tools and platform
+        $SDK/tools/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
         
-        # Create the tools/bin directory buildozer expects
-        mkdir -p $SDK_DIR/tools/bin
-        cp $SDK_DIR/build-tools/33.0.0/aidl $SDK_DIR/tools/bin/ 2>/dev/null || true
-        cp $SDK_DIR/platform-tools/adb $SDK_DIR/tools/bin/ 2>/dev/null || true
+        # Verify aidl exists
+        ls $SDK/build-tools/33.0.0/aidl && echo "aidl found"
         
-        echo "SDK ready at $SDK_DIR"
-        ls -la $SDK_DIR/tools/bin/
-
     - name: Build APK
       run: |
-        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         buildozer android debug
     
     - uses: actions/upload-artifact@v4
