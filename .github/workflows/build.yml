@@ -18,7 +18,7 @@ jobs:
     - name: Install system deps
       run: |
         sudo apt-get update
-        sudo apt-get install -y openjdk-17-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip
+        sudo apt-get install -y openjdk-17-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
     
     - name: Install Python deps
       run: |
@@ -40,20 +40,42 @@ jobs:
         print('Icons created')
         "
     
-    - name: Install Android SDK tools
+    - name: Setup Android SDK
       run: |
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk
-        cd $HOME/.buildozer/android/platform
+        # Create expected directory structure
+        ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+        
+        # Download command line tools
+        cd $ANDROID_SDK_ROOT/cmdline-tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
-        mkdir -p android-sdk/cmdline-tools
-        mv cmdline-tools android-sdk/cmdline-tools/latest
-        yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-        android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        mv cmdline-tools latest
+        
+        # Set up paths
+        export ANDROID_HOME=$ANDROID_SDK_ROOT
+        export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+        
+        # Accept licenses
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        # Install required packages
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+          "platform-tools" \
+          "platforms;android-33" \
+          "build-tools;33.0.0" \
+          "cmdline-tools;latest"
+        
+        # Verify
+        ls -la $ANDROID_SDK_ROOT/
+        echo "SDK setup complete"
     
     - name: Build APK
+      env:
+        ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
       run: |
-        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+        export PATH=$PATH:$ANDROID_HOME/platform-tools
         buildozer android debug
     
     - uses: actions/upload-artifact@v4
