@@ -14,50 +14,47 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-    - name: Remove old Java, install Java 17
+    - name: Install deps
       run: |
         sudo apt-get update
-        sudo apt-get remove -y openjdk-11-jdk openjdk-11-jre 2>/dev/null
-        sudo apt-get install -y openjdk-17-jdk zlib1g-dev cmake git zip unzip wget
-        sudo update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
-        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-        echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
-        java -version
+        sudo apt-get install -y openjdk-17-jdk openjdk-8-jdk zlib1g-dev cmake git zip unzip wget
         pip install buildozer cython pillow
     - name: Create icons
       run: |
         mkdir -p assets
         python -c "from PIL import Image, ImageDraw; img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255)); draw = ImageDraw.Draw(img); draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255)); img.save('assets/icon.png'); splash = Image.new('RGB', (1080, 1920), (79, 70, 229)); splash.save('assets/splash.png')"
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        packages: 'platforms;android-33 build-tools;33.0.0 platform-tools'
-    - name: Fix SDK paths for buildozer
+    - name: Setup SDK (Java 17)
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: |
-        BUILD_SDK=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $BUILD_SDK/tools/bin
+        export PATH=$JAVA_HOME/bin:$PATH
+        java -version
         
-        # Copy sdkmanager from installed SDK
-        cp $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $BUILD_SDK/tools/bin/
-        cp $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager $BUILD_SDK/tools/bin/ 2>/dev/null
+        # Use GitHub's pre-installed SDK
+        SDK=/usr/local/lib/android/sdk
+        
+        # Create the tools/bin path buildozer wants
+        BUILDOZER_SDK=$HOME/.buildozer/android/platform/android-sdk
+        rm -rf $BUILDOZER_SDK
+        mkdir -p $BUILDOZER_SDK/tools/bin
+        
+        # Copy sdkmanager
+        cp $SDK/cmdline-tools/latest/bin/sdkmanager $BUILDOZER_SDK/tools/bin/
+        
+        # Install platform tools if needed
+        $SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$BUILDOZER_SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
         
         # Copy aidl
-        cp $ANDROID_HOME/build-tools/33.0.0/aidl $BUILD_SDK/tools/bin/ 2>/dev/null
+        cp $BUILDOZER_SDK/build-tools/33.0.0/aidl $BUILDOZER_SDK/tools/bin/ 2>/dev/null
         
-        # Copy entire SDK for buildozer
-        cp -rn $ANDROID_HOME/* $BUILD_SDK/ 2>/dev/null
-        
-        echo "SDK paths fixed"
-        ls -la $BUILD_SDK/tools/bin/
-    - name: Switch to Java 8
+        echo "SDK ready"
+        ls $BUILDOZER_SDK/tools/bin/
+    - name: Build APK (Java 8)
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
       run: |
-        sudo apt-get install -y openjdk-8-jdk
-        export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-        echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
-    - name: Build APK
-      run: |
-        export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         export PATH=$JAVA_HOME/bin:$PATH
+        java -version
         buildozer android debug
     - uses: actions/upload-artifact@v4
       with:
