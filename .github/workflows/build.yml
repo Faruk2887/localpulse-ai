@@ -23,38 +23,32 @@ jobs:
       run: |
         mkdir -p assets
         python -c "from PIL import Image, ImageDraw; img = Image.new('RGBA', (1024, 1024), (79, 70, 229, 255)); draw = ImageDraw.Draw(img); draw.ellipse([200, 200, 824, 824], fill=(16, 185, 129, 255)); img.save('assets/icon.png'); splash = Image.new('RGB', (1080, 1920), (79, 70, 229)); splash.save('assets/splash.png')"
-    - name: Setup SDK (Java 17)
+    - name: Setup SDK
       env:
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: |
         export PATH=$JAVA_HOME/bin:$PATH
-        java -version
         
-        # Use GitHub's pre-installed SDK
-        SDK=/usr/local/lib/android/sdk
-        
-        # Create the tools/bin path buildozer wants
         BUILDOZER_SDK=$HOME/.buildozer/android/platform/android-sdk
         rm -rf $BUILDOZER_SDK
         mkdir -p $BUILDOZER_SDK/tools/bin
         
-        # Copy sdkmanager
+        SDK=/usr/local/lib/android/sdk
         cp $SDK/cmdline-tools/latest/bin/sdkmanager $BUILDOZER_SDK/tools/bin/
         
-        # Install platform tools if needed
-        $SDK/cmdline-tools/latest/bin/sdkmanager --sdk_root=$BUILDOZER_SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        # Accept ALL licenses
+        yes | $BUILDOZER_SDK/tools/bin/sdkmanager --sdk_root=$BUILDOZER_SDK --licenses
         
-        # Copy aidl
+        # Install packages
+        $BUILDOZER_SDK/tools/bin/sdkmanager --sdk_root=$BUILDOZER_SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        
         cp $BUILDOZER_SDK/build-tools/33.0.0/aidl $BUILDOZER_SDK/tools/bin/ 2>/dev/null
-        
-        echo "SDK ready"
-        ls $BUILDOZER_SDK/tools/bin/
-    - name: Build APK (Java 8)
+        echo "SDK done"
+    - name: Build APK
       env:
         JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
       run: |
         export PATH=$JAVA_HOME/bin:$PATH
-        java -version
         buildozer android debug
     - uses: actions/upload-artifact@v4
       with:
