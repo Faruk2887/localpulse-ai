@@ -1,0 +1,27 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install system deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openjdk-17-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip
+    - name: Install Python deps
+      run: pip install buildozer cython pillow
+    - name: Build APK
+      run: buildozer android debug
+    - uses: actions/upload-artifact@v4
+      with:
+        name: LocalPulseAI-APK
+        path: bin/*.apk
