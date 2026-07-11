@@ -15,17 +15,11 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install Java 8
+    - name: Install deps
       run: |
         sudo apt-get update
-        sudo apt-get install -y openjdk-8-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
-        # Set Java 8 as default
-        sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
-        sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac
-        java -version
-    
-    - name: Install Python deps
-      run: pip install buildozer cython pillow
+        sudo apt-get install -y openjdk-17-jdk zlib1g-dev autoconf automake libtool cmake git zip unzip wget
+        pip install buildozer cython pillow
     
     - name: Create icons
       run: |
@@ -41,15 +35,30 @@ jobs:
         "
 
     - name: Setup Android SDK
+      env:
+        JAVA_OPTS: -XX:+IgnoreUnrecognizedVMOptions --add-modules java.se.ee
       run: |
         SDK=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $SDK
         cd $SDK
-        wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
-        unzip -q sdk-tools-linux-4333796.zip
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
         
-        yes | $SDK/tools/bin/sdkmanager --licenses
-        $SDK/tools/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        # Buildozer expects tools/bin/sdkmanager
+        mkdir -p tools/bin
+        ln -sf $SDK/cmdline-tools/bin/sdkmanager $SDK/tools/bin/sdkmanager 2>/dev/null
+        
+        # Use the new sdkmanager
+        export PATH=$SDK/cmdline-tools/bin:$PATH
+        
+        yes | sdkmanager --sdk_root=$SDK --licenses
+        sdkmanager --sdk_root=$SDK "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        
+        # Copy aidl where buildozer looks
+        mkdir -p $SDK/tools/bin
+        cp $SDK/build-tools/33.0.0/aidl $SDK/tools/bin/ 2>/dev/null
+        echo "SDK setup done"
+        ls $SDK/tools/bin/
 
     - name: Build APK
       run: buildozer android debug
